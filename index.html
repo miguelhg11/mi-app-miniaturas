@@ -21,7 +21,7 @@ select option{background:#0e223a;color:var(--text)}
 button{background:#112f58;border:1px solid #2c4f82;color:var(--text);border-radius:8px;padding:7px 12px;cursor:pointer}
 button.primary{background:linear-gradient(180deg,#2f63ff,#1f46c9)}
 button.ok{background:linear-gradient(180deg,#27c07a,#18975c)}
-button.danger{background:linear-gradient(180deg,#ff6f73,#c74a4e)}
+button.danger{background:linear-gradient(180deg,#ff6f73,#c7a4e)}
 input[type="range"]{width:180px}
 .hr{height:1px;background:#1b2a44;margin:10px 0}
 .uploader{border:2px dashed #2b4772;border-radius:12px;padding:10px;min-height:72px;display:flex;align-items:center;justify-content:center;gap:10px;background:#0a1c33;color:#bcd0ee}
@@ -30,7 +30,7 @@ input[type="range"]{width:180px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,78px);gap:8px}
 .thumb{width:78px;height:78px;border-radius:8px;border:1px solid #244063;overflow:hidden;background:#071527;position:relative;cursor:pointer}
 .thumb img{width:100%;height:100%;object-fit:contain;background:#061222}
-.thumb .x{position:absolute;top:3px;right:3px;background:#000a;color:#fff;border:1px solid #fff3;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.thumb .x{position:absolute;top:3px;right:3px;background:#000a;color:#fff;border:1px solid #fff3;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify:content:center;font-size:12px}
 .preview-wrap{background:#0a1524;border:1px solid #1a2740;border-radius:14px;padding:8px;height:100%;display:flex;align-items:center;justify-content:center}
 .stage{position:relative;width:100%;max-width:980px;aspect-ratio:16/9;background:#000;border-radius:10px;border:1px solid #1a2a45;overflow:hidden}
 .canvas-bg{position:absolute;inset:0}
@@ -47,12 +47,31 @@ input[type="range"]{width:180px}
 .title-box{position:relative;display:inline-block;padding:10px 16px;border-radius:10px;background:rgba(0,0,0,0);border:0 solid #fff;color:#fff;font-weight:800;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
 .title-drag{position:absolute;inset:0;cursor:move}
 </style>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body>
+<script>
+  // --- Tu configuración de Firebase ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyBSlgv32vAplW-txIUkropkCFwq0N7yAs8",
+    authDomain: "mi-app-miniaturas-db.firebaseapp.com",
+    projectId: "mi-app-miniaturas-db",
+    storageBucket: "mi-app-miniaturas-db.firebasestorage.app",
+    messagingSenderId: "801235150027",
+    appId: "1:801235150027:web:ecdc5718411d1298ada74e"
+  };
+  // -------------------------------------------
+
+  // Inicializar Firebase (estilo v8)
+  firebase.initializeApp(firebaseConfig);
+
+  // Nuestro "mando" para la base de datos
+  const db = firebase.firestore();
+
+</script>
 <div class="wrap">
-  <!-- LADO IZQUIERDO -->
   <div class="left">
-    <!-- FONDO -->
     <section class="box">
       <h3>FONDO</h3>
       <div class="row">
@@ -86,7 +105,6 @@ input[type="range"]{width:180px}
       </div>
     </section>
 
-    <!-- VS -->
     <section class="box">
       <h3>SÍMBOLO “VS”</h3>
       <div class="row"><label><input id="vsEnabled" type="checkbox"> Activar VS</label><span class="small">Arrastra en el lienzo. Esquinas = proporcional, lados = deformar.</span></div>
@@ -98,7 +116,6 @@ input[type="range"]{width:180px}
       <div class="gallery"><div id="vsGrid" class="grid"></div></div>
     </section>
 
-    <!-- EQUIPOS -->
     <section class="box">
       <h3>EQUIPOS</h3>
       <div class="row"><label>Opacidad marco escudo</label><input id="frameOpacity" type="range" min="0" max="100" value="60"><span id="frameOpacityVal" class="small">60%</span></div>
@@ -123,7 +140,6 @@ input[type="range"]{width:180px}
       </details>
     </section>
 
-    <!-- TÍTULO -->
     <section class="box">
       <h3>TÍTULO</h3>
       <input id="titleText" type="text" placeholder="Escribe el título... (vacío = oculto)" style="width:100%">
@@ -144,7 +160,6 @@ input[type="range"]{width:180px}
       <div class="small">Por defecto la caja se ajusta al texto. Luego puedes estirarla: <b>esquinas</b> (proporcional), <b>lados</b> (ancho), <b>arriba/abajo</b> (alto/padding).</div>
     </section>
 
-    <!-- MINIATURAS -->
     <section class="box">
       <h3>MINIATURAS GUARDADAS</h3>
       <div class="row" style="width:100%"><input id="snapshotName" type="text" placeholder="Nombre del modelo..." style="flex:1"><button class="ok" id="btnSaveSnap">Guardar</button></div>
@@ -152,7 +167,6 @@ input[type="range"]{width:180px}
       <div class="row"><button class="danger" id="btnWipeSnaps">Eliminar todos</button></div>
     </section>
 
-    <!-- EXPORTAR -->
     <section class="box">
       <h3>EXPORTAR</h3>
       <div class="row"><button class="primary" id="exp720">Exportar 1280×720</button><button class="primary" id="exp1080">Exportar 1920×1080</button></div>
@@ -160,7 +174,6 @@ input[type="range"]{width:180px}
     </section>
   </div>
 
-  <!-- PREVISUALIZACIÓN -->
   <div class="preview-wrap">
     <div class="stage" id="stage">
       <canvas id="bgCanvas" class="canvas-bg"></canvas>
@@ -422,6 +435,10 @@ selBox.querySelectorAll('.handle').forEach(h=>resizeHandle(h,(t,r0,s,dx,dy,hEl)=
     if(hEl.classList.contains('ml')||hEl.classList.contains('tl')||hEl.classList.contains('bl')) w-=dx; if(hEl.classList.contains('mr')||hEl.classList.contains('tr')||hEl.classList.contains('br')) w+=dx;
     if(hEl.classList.contains('mt')||hEl.classList.contains('tl')||hEl.classList.contains('tr')) h-=dy; if(hEl.classList.contains('mb')||hEl.classList.contains('bl')||hEl.classList.contains('br')) h+=dy;
     if(keep){const ratio=vsImg.naturalWidth/vsImg.naturalHeight; h=w/ratio;}
+    w=Math.max(32,w); h=Math.max(3t.id==='vsImg'){const keep=!['ml','mr','mt','mb'].some(c=>hEl.classList.contains(c)); let w=r0.width, h=r0.height;
+    if(hEl.classList.contains('ml')||hEl.classList.contains('tl')||hEl.classList.contains('bl')) w-=dx; if(hEl.classList.contains('mr')||hEl.classList.contains('tr')||hEl.classList.contains('br')) w+=dx;
+    if(hEl.classList.contains('mt')||hEl.classList.contains('tl')||hEl.classList.contains('tr')) h-=dy; if(hEl.classList.contains('mb')||hEl.classList.contains('bl')||hEl.classList.contains('br')) h+=dy;
+    if(keep){const ratio=vsImg.naturalWidth/vsImg.naturalHeight; h=w/ratio;}
     w=Math.max(32,w); h=Math.max(32,h); state.vs.w=w/S().width; state.vs.h=h/S().height; syncVS();
   }else{ // título: horizontal = ml/mr ; vertical = mt/mb (padding)
     if(hEl.classList.contains('ml')||hEl.classList.contains('mr')){ let w=r0.width + (hEl.classList.contains('mr')?dx:-dx); w=Math.max(120,w); state.title.w=w/S().width; }
@@ -596,7 +613,7 @@ async function renderPreview(W,H){
       const a=state.bg.angle*Math.PI/180, len=Math.hypot(W,H); const x1=cx+Math.cos(a+Math.PI)*len, y1=cy+Math.sin(a+Math.PI)*len; const x2=cx+Math.cos(a)*len, y2=cy+Math.sin(a)*len;
       const g=ctx.createLinearGradient(x1,y1,x2,y2); const mid=.5, spread=Math.max(.0001,.5*(1-state.bg.soft/100)); g.addColorStop(Math.max(0,mid-spread),state.bg.a); g.addColorStop(Math.min(1,mid+spread),state.bg.b); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
     }else{ const g=ctx.createRadialGradient(cx,cy,Math.max(.0001,2),cx,cy,Math.hypot(W,H)/2); const spread=Math.max(.0001,(1-state.bg.soft/100)); g.addColorStop(0,state.bg.a); g.addColorStop(spread,state.bg.b); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);}
-  }else if(state.bg.img){const img=state.bg.img; const r=Math.max(W/img.naturalWidth,H/img.naturalHeight); const nw=img.naturalWidth*r, nh=img.naturalHeight*r; ctx.drawImage(img,(W-nw)/2,(H-nh)/2,nw,nh);} else {ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);}
+  }else if(state.bg.img){const img=state.bg.img; const r=Math.max(W/img.naturalWidth,H/img.naturalHeight); const nw=img.naturalWidth*r, nh=img.naturalHeight*r; ctx.drawImage(img,(W-nw)/2,(h-nh)/2,nw,nh);} else {ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);}
   // Cristal + escudos
   function glass(ctx,x,y,w,h,pad,alpha){ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle='rgba(255,255,255,.96)';roundRect(ctx,x-w/2-pad,y-h/2-pad,w+pad*2,h+pad*2,18);ctx.fill();ctx.restore();}
   function shield(st){if(!st.img) return; const w=st.size*W, r=w/st.img.naturalWidth, h=st.img.naturalHeight*r; const x=st.pos.x*W, y=st.pos.y*H; const pad=Math.round(Math.min(26,w*0.12)); glass(ctx,x,y,w,h,pad,state.logos.frameOpacity); ctx.save(); ctx.filter='drop-shadow(0px 8px 16px rgba(0,0,0,0.35))'; ctx.drawImage(st.img,x-w/2,y-h/2,w,h); ctx.restore();}
@@ -604,7 +621,7 @@ async function renderPreview(W,H){
   // VS
   if(state.vs.enabled && (state.vs.img||vsImg.src)){const img=vsImg; const iw=W*(state.vs.w||0.18), ih=(state.vs.h?state.vs.h*H: iw*(img.naturalHeight/img.naturalWidth)); const x=state.vs.pos.x*W, y=state.vs.pos.y*H; ctx.drawImage(img,x-iw/2,y-ih/2,iw,ih);}
   // Título
-  if(state.title.text.trim()){const f=state.title.manualFont?.trim()||state.title.font||'Segoe UI'; const boxW=(state.title.w??(Math.min(0.9*W, titleBox.getBoundingClientRect().width)) ); const tx=state.title.pos.x*W - boxW/2, ty=state.title.pos.y*H; ctx.save(); if(state.title.boxAlpha>0||state.title.boxStroke>0){ctx.fillStyle=hexA(state.title.boxBg,state.title.boxAlpha); ctx.strokeStyle=state.title.boxStrokeColor; ctx.lineWidth=state.title.boxStroke; roundRect(ctx,tx,ty,boxW,state.title.size+state.title.padV*2+10,12); if(state.title.boxAlpha>0) ctx.fill(); if(state.title.boxStroke>0) ctx.stroke(); }
+  if(state.title.text.trim()){const f=state.title.manualFont?.trim()||t.font||'Segoe UI'; const boxW=(state.title.w??(Math.min(0.9*W, titleBox.getBoundingClientRect().width)) ); const tx=state.title.pos.x*W - boxW/2, ty=state.title.pos.y*H; ctx.save(); if(state.title.boxAlpha>0||state.title.boxStroke>0){ctx.fillStyle=hexA(state.title.boxBg,state.title.boxAlpha); ctx.strokeStyle=state.title.boxStrokeColor; ctx.lineWidth=state.t.title.boxStroke; roundRect(ctx,tx,ty,boxW,state.title.size+state.title.padV*2+10,12); if(state.title.boxAlpha>0) ctx.fill(); if(state.title.boxStroke>0) ctx.stroke(); }
     ctx.font=`900 ${state.title.size}px "${f}", system-ui`; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle=state.title.color;
     if(state.title.stroke>0){ctx.lineWidth=state.title.stroke*2;ctx.strokeStyle=state.title.strokeColor;ctx.strokeText(state.title.text, state.title.pos.x*W, ty+state.title.padV);}
     ctx.shadowColor='rgba(0,0,0,.45)'; ctx.shadowBlur=8; ctx.shadowOffsetY=2; ctx.fillText(state.title.text, state.title.pos.x*W, ty+state.title.padV); ctx.restore();}
