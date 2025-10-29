@@ -30,7 +30,7 @@ input[type="range"]{width:180px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,78px);gap:8px}
 .thumb{width:78px;height:78px;border-radius:8px;border:1px solid #244063;overflow:hidden;background:#071527;position:relative;cursor:pointer}
 .thumb img{width:100%;height:100%;object-fit:contain;background:#061222}
-.thumb .x{position:absolute;top:3px;right:3px;background:#000a;color:#fff;border:1px solid #fff3;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify:content:center;font-size:12px}
+.thumb .x{position:absolute;top:3px;right:3px;background:#000a;color:#fff;border:1px solid #fff3;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px}
 .preview-wrap{background:#0a1524;border:1px solid #1a2740;border-radius:14px;padding:8px;height:100%;display:flex;align-items:center;justify-content:center}
 .stage{position:relative;width:100%;max-width:980px;aspect-ratio:16/9;background:#000;border-radius:10px;border:1px solid #1a2a45;overflow:hidden}
 .canvas-bg{position:absolute;inset:0}
@@ -101,7 +101,7 @@ input[type="range"]{width:180px}
           <button onclick="bgFiles.click()">Elegir archivos</button>
         </div>
         <div class="gallery"><div id="bgGrid" class="grid"></div></div>
-        <div class="small">Clic en una miniatura para usarla como fondo (persisten en IndexedDB).</div>
+        <div class="small">Clic en una miniatura para usarla como fondo (datos en Firestore).</div>
       </div>
     </section>
 
@@ -196,39 +196,7 @@ input[type="range"]{width:180px}
 </div>
 
 <script>
-/* ====== IndexedDB helpers ====== */
-const DB_NAME='miniaturas-hockey', DB_VERSION=2; let db;
-function idbOpen(){
-  return new Promise((res,rej)=>{
-    const rq=indexedDB.open(DB_NAME,DB_VERSION);
-    rq.onupgradeneeded=e=>{
-      const d=e.target.result;
-      if(!d.objectStoreNames.contains('fondos')) d.createObjectStore('fondos',{keyPath:'id',autoIncrement:true});
-      if(!d.objectStoreNames.contains('vs')) d.createObjectStore('vs',{keyPath:'id',autoIncrement:true});
-      if(!d.objectStoreNames.contains('cats')) d.createObjectStore('cats',{keyPath:'id'});
-      if(!d.objectStoreNames.contains('equipos')) d.createObjectStore('equipos',{keyPath:'id'}); // id = cat|team
-      if(!d.objectStoreNames.contains('snaps')) d.createObjectStore('snaps',{keyPath:'id',autoIncrement:true});
-    };
-    rq.onsuccess=()=>{db=rq.result; ensureBaseCats().then(res).catch(rej);}
-    rq.onerror=()=>rej(rq.error);
-  });
-}
-function ensureBaseCats(){
-  return new Promise((res,rej)=>{
-    const tx=db.transaction('cats','readwrite'); const st=tx.objectStore('cats');
-    const base=['LIGA MADRILEÑA','RESTO ESPAÑA','SELECCIONES AUTONÓMICAS','OTROS'];
-    let pending=base.length;
-    base.forEach(c=>{
-      const g=st.get(c); g.onsuccess=()=>{ if(!g.result) st.put({id:c,name:c}); if(--pending===0) res(); };
-      g.onerror=rej;
-    });
-  });
-}
-const idbGetAll=(store)=>new Promise((res,rej)=>{const tx=db.transaction(store,'readonly');tx.objectStore(store).getAll().onsuccess=e=>res(e.target.result);tx.onerror=()=>rej(tx.error)});
-const idbAdd=(s,o)=>new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).add(o).onsuccess=e=>res(e.target.result);tx.onerror=()=>rej(tx.error)});
-const idbPut=(s,o)=>new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).put(o).onsuccess=()=>res();tx.onerror=()=>rej(tx.error)});
-const idbDel=(s,k)=>new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).delete(k).onsuccess=()=>res();tx.onerror=()=>rej(tx.error)});
-const idbClear=(s)=>new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).clear().onsuccess=()=>res();tx.onerror=()=>rej(tx.error)});
+/* ====== ¡¡¡YA NO HAY INDEXEDDB!! TODO BORRADO ====== */
 
 /* ====== Estado ====== */
 const state={
@@ -253,6 +221,7 @@ const titleLayer=document.getElementById('titleLayer'), titleBox=document.getEle
 
 /* ====== Utils ====== */
 const S=()=>stage.getBoundingClientRect(); const n2x=(n)=>S().width*n, n2y=(n)=>S().height*n, x2n=(p)=>p/S().width, y2n=(p)=>p/S().height;
+// loadURL (Base64) es la clave para nuestro Plan B (no usar Storage)
 const loadURL=f=>new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f);});
 function getImageDataURL(img){ if(img?.src?.startsWith('data:')) return img.src; const c=document.createElement('canvas'); const w=img.naturalWidth||img.width, h=img.naturalHeight||img.height; if(!w||!h) return null; c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0); return c.toDataURL('image/png'); }
 
@@ -320,46 +289,127 @@ function makeDrop(zone,input,onFiles){
 }
 
 /* ====== Galería de Fondos ====== */
-const bgGrid=document.getElementById('bgGrid'); makeDrop(document.getElementById('dropBg'),document.getElementById('bgFiles'),async files=>{
-  for(const f of files){const url=await loadURL(f);const id=await idbAdd('fondos',{data:url,name:f.name,ts:Date.now()});addThumb(bgGrid,{id,src:url,store:'fondos'},{onselect:()=>useBg(url),showDelete:true});}
+const bgGrid=document.getElementById('bgGrid'); 
+makeDrop(document.getElementById('dropBg'),document.getElementById('bgFiles'),async files=>{
+  for(const f of files){
+    const url = await loadURL(f); // url es Base64
+    // Subir a Firestore
+    const docRef = await db.collection('fondos').add({
+      data: url, // Guardamos el Base64
+      name: f.name,
+      ts: Date.now()
+    });
+    addThumb(bgGrid,{id: docRef.id, src:url, store:'fondos'},{onselect:()=>useBg(url), showDelete:true});
+  }
 });
-async function loadBgGallery(){bgGrid.innerHTML='';(await idbGetAll('fondos')).forEach(r=>addThumb(bgGrid,{id:r.id,src:r.data,store:'fondos'},{onselect:()=>useBg(r.data),showDelete:true}));}
+async function loadBgGallery(){
+  bgGrid.innerHTML='';
+  // Leer de Firestore
+  const querySnapshot = await db.collection('fondos').orderBy('ts', 'desc').get();
+  querySnapshot.forEach(doc => {
+    const r = doc.data();
+    addThumb(bgGrid,{id: doc.id, src: r.data, store:'fondos'},{onselect:()=>useBg(r.data), showDelete:true});
+  });
+}
 function useBg(url){const im=new Image();im.onload=()=>{state.bg.img=im;state.bg.mode='gallery';document.querySelector('input[value="gallery"]').checked=true;document.getElementById('bgGradientControls').style.display='none';document.getElementById('bgGalleryControls').style.display='block';drawBackground();};im.src=url;}
 
 /* ====== Galería VS ====== */
-const vsGrid=document.getElementById('vsGrid'); makeDrop(document.getElementById('dropVs'),document.getElementById('vsFiles'),async files=>{
-  for(const f of files){const url=await loadURL(f);const id=await idbAdd('vs',{data:url,name:f.name,ts:Date.now()});addThumb(vsGrid,{id,src:url,store:'vs'},{onselect:()=>selectVS(url),showDelete:true});}
+const vsGrid=document.getElementById('vsGrid'); 
+makeDrop(document.getElementById('dropVs'),document.getElementById('vsFiles'),async files=>{
+  for(const f of files){
+    const url = await loadURL(f); // url es Base64
+    // Subir a Firestore
+    const docRef = await db.collection('vs').add({
+      data: url,
+      name: f.name,
+      ts: Date.now()
+    });
+    addThumb(vsGrid,{id: docRef.id, src:url, store:'vs'},{onselect:()=>selectVS(url), showDelete:true});
+  }
 });
-async function loadVsGallery(){vsGrid.innerHTML='';(await idbGetAll('vs')).forEach(r=>addThumb(vsGrid,{id:r.id,src:r.data,store:'vs'},{onselect:()=>selectVS(r.data),showDelete:true}));}
+async function loadVsGallery(){
+  vsGrid.innerHTML='';
+  // Leer de Firestore
+  const querySnapshot = await db.collection('vs').orderBy('ts', 'desc').get();
+  querySnapshot.forEach(doc => {
+    const r = doc.data();
+    addThumb(vsGrid,{id: doc.id, src: r.data, store:'vs'},{onselect:()=>selectVS(r.data), showDelete:true});
+  });
+}
 function selectVS(url){vsImg.src=url;state.vs.img=url;document.getElementById('vsEnabled').checked=true;state.vs.enabled=true;vsImg.style.display='block';syncVS();}
 
 /* ====== Miniatura helper ====== */
 function addThumb(container,item,opt={}){const d=document.createElement('div');d.className='thumb';const img=document.createElement('img');img.src=item.src;d.appendChild(img);
-  if(opt.showDelete){const x=document.createElement('div');x.className='x';x.textContent='×';x.onclick=async(ev)=>{ev.stopPropagation();await idbDel(item.store,item.id);d.remove();};d.appendChild(x);}
+  if(opt.showDelete){
+    const x=document.createElement('div');x.className='x';x.textContent='×';
+    x.onclick=async(ev)=>{
+      ev.stopPropagation();
+      try {
+        // Borrar de Firestore
+        await db.collection(item.store).doc(item.id).delete();
+        d.remove();
+      } catch (e) {
+        console.error("Error al borrar:", e);
+        alert("No se pudo borrar");
+      }
+    };
+    d.appendChild(x);
+  }
   d.onclick=()=>opt.onselect&&opt.onselect(item);container.appendChild(d);}
 
 /* ====== Escudos (categorías/equipos) ====== */
 const cat1=document.getElementById('cat1'), cat2=document.getElementById('cat2'), adminCat=document.getElementById('adminCat');
 const team1=document.getElementById('team1'), team2=document.getElementById('team2'), adminGrid=document.getElementById('adminGrid');
 
-async function refreshCats(){const cats=(await idbGetAll('cats')).sort((a,b)=>a.name.localeCompare(b.name));
+async function refreshCats(){
+  // Asegurar categorías base en Firestore
+  try {
+    const batch = db.batch();
+    const base=['LIGA MADRILEÑA','RESTO ESPAÑA','SELECCIONES AUTONÓMICAS','OTROS'];
+    base.forEach(c => {
+      const docRef = db.collection('cats').doc(c); // Usar el nombre como ID
+      batch.set(docRef, { id: c, name: c }, { merge: true }); // merge:true = crear si no existe
+    });
+    await batch.commit();
+  } catch (e) {
+    console.warn("No se pudieron crear categorías base:", e);
+  }
+
+  // Leer categorías de Firestore
+  const querySnapshot = await db.collection('cats').get();
+  const cats = [];
+  querySnapshot.forEach(doc => cats.push(doc.data()));
+  cats.sort((a,b)=>a.name.localeCompare(b.name));
+
   [cat1,cat2,adminCat].forEach(sel=>{const keep=sel.value;sel.innerHTML='';cats.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;sel.appendChild(o);});if(cats[0]) sel.value=keep&&cats.some(c=>c.id===keep)?keep:cats[0].id;});
   refreshTeamsUI();
 }
+
 async function refreshTeamsUI(){
   async function fill(sel,cat){
     sel.innerHTML='';
     const def=document.createElement('option');def.value='';def.textContent='-- Equipo --';sel.appendChild(def);
-    (await idbGetAll('equipos'))
-      .filter(r=>r.cat===cat)
-      .sort((a,b)=>a.team.localeCompare(b.team))
-      .forEach(r=>{const o=document.createElement('option');o.value=r.id;o.textContent=r.team;sel.appendChild(o);});
-    sel.disabled=false; // asegurar habilitado
+    
+    // Leer equipos de Firestore filtrando por categoría
+    const querySnapshot = await db.collection('equipos').where('cat', '==', cat).get();
+    const teams = [];
+    querySnapshot.forEach(doc => teams.push(doc.data()));
+    
+    teams.sort((a,b)=>a.team.localeCompare(b.team))
+         .forEach(r=>{const o=document.createElement('option');o.value=r.id;o.textContent=r.team;sel.appendChild(o);});
+    sel.disabled=false;
   }
-  await fill(team1,cat1.value); await fill(team2,cat2.value);
+  
+  await fill(team1,cat1.value); 
+  await fill(team2,cat2.value);
+  
   // grid admin
   adminGrid.innerHTML='';
-  (await idbGetAll('equipos')).filter(r=>r.cat===adminCat.value).forEach(r=>addThumb(adminGrid,{id:r.id,src:r.data,store:'equipos'},{showDelete:true}));
+  const adminQuery = await db.collection('equipos').where('cat', '==', adminCat.value).get();
+  adminQuery.forEach(doc => {
+    const r = doc.data();
+    addThumb(adminGrid,{id:r.id,src:r.data,store:'equipos'},{showDelete:true});
+  });
 }
 cat1.onchange=refreshTeamsUI; cat2.onchange=refreshTeamsUI; adminCat.onchange=refreshTeamsUI;
 
@@ -369,22 +419,32 @@ let pendingEscudos=[]; // [{name,data}]
 makeDrop(dropShield, shieldFile, async files=>{
   pendingEscudos=[];
   for(const f of files){
-    const data=await loadURL(f);
+    const data=await loadURL(f); // data es Base64
     const name=f.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim();
     pendingEscudos.push({name,data});
     adminGrid.insertAdjacentHTML('afterbegin', `<div class="thumb"><img src="${data}" title="${name}"></div>`);
   }
 });
+
 document.getElementById('btnCreateTeam').onclick=async ()=>{
   const cat=adminCat.value;
   if(!pendingEscudos.length){ alert('Arrastra o elige uno o varios escudos primero.'); return; }
   const manual=document.getElementById('adminTeamName').value.trim();
   const created=[];
+  
   for(let i=0;i<pendingEscudos.length;i++){
     const e=pendingEscudos[i];
     const teamName=(pendingEscudos.length===1 && manual)? manual : (e.name||`Equipo ${Date.now()%1000}`);
-    const id=`${cat}|${teamName}`;
-    await idbPut('equipos',{id,cat,team:teamName,data:e.data,ts:Date.now()});
+    const id=`${cat}|${teamName}`; // Creamos un ID personalizado
+    
+    // Subir a Firestore usando el ID personalizado
+    await db.collection('equipos').doc(id).set({
+      id: id,
+      cat: cat,
+      team: teamName,
+      data: e.data, // El Base64
+      ts: Date.now()
+    });
     created.push(id);
   }
   pendingEscudos=[];
@@ -396,8 +456,19 @@ document.getElementById('btnCreateTeam').onclick=async ()=>{
 };
 
 /* Selección de equipos */
-team1.onchange=async ()=>{const id=team1.value;if(!id)return;const rec=(await idbGetAll('equipos')).find(r=>r.id===id);setTeam('e1',rec);}
-team2.onchange=async ()=>{const id=team2.value;if(!id)return;const rec=(await idbGetAll('equipos')).find(r=>r.id===id);setTeam('e2',rec);}
+team1.onchange=async ()=>{
+  const id=team1.value; if(!id)return;
+  // Leer el doc específico de Firestore
+  const doc = await db.collection('equipos').doc(id).get();
+  if (doc.exists) setTeam('e1', doc.data());
+}
+team2.onchange=async ()=>{
+  const id=team2.value; if(!id)return;
+  // Leer el doc específico de Firestore
+  const doc = await db.collection('equipos').doc(id).get();
+  if (doc.exists) setTeam('e2', doc.data());
+}
+
 function setTeam(which,rec){
   const im=new Image();
   im.onload=()=>{
@@ -406,7 +477,7 @@ function setTeam(which,rec){
     state.logos[which].data=rec.data;
     drawLogos();
   };
-  im.src=rec.data;
+  im.src=rec.data; // rec.data es el Base64 de la nube
 }
 
 /* Marco escudo opacidad */
@@ -432,10 +503,6 @@ function resizeHandle(h,apply){h.addEventListener('mousedown',e=>{e.stopPropagat
 });}
 selBox.querySelectorAll('.handle').forEach(h=>resizeHandle(h,(t,r0,s,dx,dy,hEl)=>{
   if(t.id==='vsImg'){const keep=!['ml','mr','mt','mb'].some(c=>hEl.classList.contains(c)); let w=r0.width, h=r0.height;
-    if(hEl.classList.contains('ml')||hEl.classList.contains('tl')||hEl.classList.contains('bl')) w-=dx; if(hEl.classList.contains('mr')||hEl.classList.contains('tr')||hEl.classList.contains('br')) w+=dx;
-    if(hEl.classList.contains('mt')||hEl.classList.contains('tl')||hEl.classList.contains('tr')) h-=dy; if(hEl.classList.contains('mb')||hEl.classList.contains('bl')||hEl.classList.contains('br')) h+=dy;
-    if(keep){const ratio=vsImg.naturalWidth/vsImg.naturalHeight; h=w/ratio;}
-    w=Math.max(32,w); h=Math.max(3t.id==='vsImg'){const keep=!['ml','mr','mt','mb'].some(c=>hEl.classList.contains(c)); let w=r0.width, h=r0.height;
     if(hEl.classList.contains('ml')||hEl.classList.contains('tl')||hEl.classList.contains('bl')) w-=dx; if(hEl.classList.contains('mr')||hEl.classList.contains('tr')||hEl.classList.contains('br')) w+=dx;
     if(hEl.classList.contains('mt')||hEl.classList.contains('tl')||hEl.classList.contains('tr')) h-=dy; if(hEl.classList.contains('mb')||hEl.classList.contains('bl')||hEl.classList.contains('br')) h+=dy;
     if(keep){const ratio=vsImg.naturalWidth/vsImg.naturalHeight; h=w/ratio;}
@@ -546,37 +613,68 @@ document.getElementById('btnSaveSnap').onclick=async ()=>{
   pkg.vs = {...state.vs, img: state.vs.img || (vsImg.src||null)};
 
   const data=JSON.stringify(pkg);
-  const id=await idbAdd('snaps',{name,data,thumb,ts:Date.now()});
-  addSnap({id,name,thumb});
+  // Guardar en Firestore
+  const docRef = await db.collection('snaps').add({
+    name: name,
+    data: data, // El JSON gigante como string
+    thumb: thumb, // El Base64 de la miniatura
+    ts: Date.now()
+  });
+  addSnap({id: docRef.id, name, thumb});
   snapshotName.value='';
 };
-document.getElementById('btnWipeSnaps').onclick=async ()=>{if(confirm('¿Eliminar TODAS las miniaturas guardadas?')){await idbClear('snaps'); loadSnaps();}};
-function addSnap(r){
+document.getElementById('btnWipeSnaps').onclick=async ()=>{
+  if(confirm('¿Eliminar TODAS las miniaturas guardadas?')){
+    try {
+      // Borrar todos los "snaps" de Firestore
+      const querySnapshot = await db.collection('snaps').get();
+      const batch = db.batch();
+      querySnapshot.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      loadSnaps(); // Recargar la galería vacía
+    } catch (e) {
+      console.error("Error al borrar miniaturas:", e);
+    }
+  }
+};
+function addSnap(r){ // r = { id, name, thumb }
   const d=document.createElement('div'); d.className='thumb';
   const img=new Image(); img.src=r.thumb; d.appendChild(img);
   const cap=document.createElement('div'); cap.style.position='absolute'; cap.style.left='4px'; cap.style.bottom='4px'; cap.style.fontSize='10px'; cap.textContent=r.name; d.appendChild(cap);
   const x=document.createElement('div'); x.className='x'; x.textContent='×';
-  x.onclick=async(ev)=>{ev.stopPropagation(); if(confirm('¿Eliminar este modelo?')){await idbDel('snaps',r.id); d.remove();}};
+  x.onclick=async(ev)=>{
+    ev.stopPropagation(); 
+    if(confirm('¿Eliminar este modelo?')){
+      // Borrar el doc específico de Firestore
+      await db.collection('snaps').doc(r.id).delete(); 
+      d.remove();
+    }
+  };
   d.appendChild(x);
 
   d.onclick=async ()=>{
-    const rec=(await idbGetAll('snaps')).find(s=>s.id===r.id); if(!rec) return;
-    const st=JSON.parse(rec.data);
+    // Cargar el doc específico de Firestore
+    const doc = await db.collection('snaps').doc(r.id).get();
+    if (!doc.exists) return;
+    const rec = doc.data();
+    
+    const st=JSON.parse(rec.data); // Parsear el JSON guardado
 
     // Fondo
     Object.assign(state.bg, st.bg||{});
-    if (st.bg?.data){
+    if (st.bg?.data){ // data es Base64
       const im=new Image(); im.onload=()=>{state.bg.img=im; drawBackground();}; im.src=st.bg.data;
     } else { state.bg.img=null; drawBackground(); }
 
     // Logos
     for (const k of ['e1','e2']){
       Object.assign(state.logos[k], st.logos?.[k]||{});
-      if (st.logos?.[k]?.data){
+      if (st.logos?.[k]?.data){ // data es Base64
         const im=new Image(); im.onload=()=>{state.logos[k].img=im; drawLogos();}; im.src=st.logos[k].data;
       } else if (state.logos[k].id){
-        const recEq=(await idbGetAll('equipos')).find(e=>e.id===state.logos[k].id);
-        if (recEq) setTeam(k, recEq);
+        // Si no hay data, buscar el equipo por ID en Firestore
+        const recEqDoc = await db.collection('equipos').doc(state.logos[k].id).get();
+        if (recEqDoc.exists) setTeam(k, recEqDoc.data());
       }
     }
 
@@ -599,7 +697,16 @@ function addSnap(r){
 
   snapGrid.appendChild(d);
 }
-async function loadSnaps(){snapGrid.innerHTML=''; const rows=await idbGetAll('snaps'); rows.sort((a,b)=>b.ts-a.ts).forEach(addSnap);}
+async function loadSnaps(){
+  snapGrid.innerHTML=''; 
+  // Leer todos los "snaps" de Firestore
+  const querySnapshot = await db.collection('snaps').orderBy('ts', 'desc').get();
+  querySnapshot.forEach(doc => {
+    const data = doc.data();
+    // Añadir a la galería solo la info necesaria (id, nombre, miniatura)
+    addSnap({ id: doc.id, name: data.name, thumb: data.thumb });
+  });
+}
 
 /* ====== Exportación / Renderizado ====== */
 document.getElementById('exp720').onclick=()=>exportPNG(1280,720);
@@ -613,7 +720,7 @@ async function renderPreview(W,H){
       const a=state.bg.angle*Math.PI/180, len=Math.hypot(W,H); const x1=cx+Math.cos(a+Math.PI)*len, y1=cy+Math.sin(a+Math.PI)*len; const x2=cx+Math.cos(a)*len, y2=cy+Math.sin(a)*len;
       const g=ctx.createLinearGradient(x1,y1,x2,y2); const mid=.5, spread=Math.max(.0001,.5*(1-state.bg.soft/100)); g.addColorStop(Math.max(0,mid-spread),state.bg.a); g.addColorStop(Math.min(1,mid+spread),state.bg.b); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
     }else{ const g=ctx.createRadialGradient(cx,cy,Math.max(.0001,2),cx,cy,Math.hypot(W,H)/2); const spread=Math.max(.0001,(1-state.bg.soft/100)); g.addColorStop(0,state.bg.a); g.addColorStop(spread,state.bg.b); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);}
-  }else if(state.bg.img){const img=state.bg.img; const r=Math.max(W/img.naturalWidth,H/img.naturalHeight); const nw=img.naturalWidth*r, nh=img.naturalHeight*r; ctx.drawImage(img,(W-nw)/2,(h-nh)/2,nw,nh);} else {ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);}
+  }else if(state.bg.img){const img=state.bg.img; const r=Math.max(W/img.naturalWidth,H/img.naturalHeight); const nw=img.naturalWidth*r, nh=img.naturalHeight*r; ctx.drawImage(img,(W-nw)/2,(H-nh)/2,nw,nh);} else {ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);}
   // Cristal + escudos
   function glass(ctx,x,y,w,h,pad,alpha){ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle='rgba(255,255,255,.96)';roundRect(ctx,x-w/2-pad,y-h/2-pad,w+pad*2,h+pad*2,18);ctx.fill();ctx.restore();}
   function shield(st){if(!st.img) return; const w=st.size*W, r=w/st.img.naturalWidth, h=st.img.naturalHeight*r; const x=st.pos.x*W, y=st.pos.y*H; const pad=Math.round(Math.min(26,w*0.12)); glass(ctx,x,y,w,h,pad,state.logos.frameOpacity); ctx.save(); ctx.filter='drop-shadow(0px 8px 16px rgba(0,0,0,0.35))'; ctx.drawImage(st.img,x-w/2,y-h/2,w,h); ctx.restore();}
@@ -633,7 +740,7 @@ function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+
 
 /* ====== Inicio ====== */
 (async function init(){
-  await idbOpen();
+  // Ya no hay idbOpen()
   await Promise.all([loadBgGallery(), loadVsGallery(), loadSnaps(), loadFonts(), refreshCats()]);
   drawBackground(); drawLogos(); syncVS(); syncTitle();
   document.getElementById('vsImg').addEventListener('click',()=>showSelFor(vsImg,true));
